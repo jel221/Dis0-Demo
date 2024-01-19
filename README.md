@@ -32,6 +32,7 @@ Again, run `objdump`:
 
 So to explain, `%rdi` is the first argument to helper_func. (Review x86_64 calling conventions. C can choose to pass arguments through either the stack or registers if there are fewer than 4 arguments)
 The address of helper_args starts at -40(%rbp), but the member string and target appear to be at -32(%rbp) and -24(%rbp) respectively!
+Comment on the -40(%rbp):  This might be confusing because it appears to be indexing into the address in %rbp, but leaq loads the effective address in a register with a provided constant offset.
 (Convince yourself that this is correct. 47 is the ASCII representation of '/'.)
 ```
 gcc -c lib.c -o lib.o (again, add arch -x86_64 if you're on an M1 or M2 Mac)
