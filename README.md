@@ -1,11 +1,11 @@
-Neat little demo to make your discussion a bit more interactive and exciting!
+Neat little demo for Headers and how gcc computes struct member offsets!
 
 Problem 1:
 ```
 gcc -c app.c -o app.o
 arch -x86_64 gcc -c app.c -o app.o (if you have an M1 or M2 chip)
 ```
-Demonstrate that when you examine `objdump -D app.o`, the return value is 16, which is `sizeof(helper_args_t)`
+Examine `objdump -D app.o`, the return value is 16, which is `sizeof(helper_args_t)`
 ```
 44: b8 10 00 00 00                movl    $16, %eax
 ```
@@ -20,7 +20,7 @@ gcc -DABC -c app.c -o app.o
 arch -x86_64 gcc -DABC -c app.c -o app.o (if you have an M1 or M2 chip)
 ```
 
-Again, run `objdump`:
+Again, run `objdump` on app.o:
 
 ```
       1d: 48 89 45 e0                   movq    %rax, -32(%rbp)
@@ -31,8 +31,9 @@ Again, run `objdump`:
 ```
 
 So to explain, `%rdi` is the first argument to helper_func. (Review x86_64 calling conventions. C can choose to pass arguments through either the stack or registers if there are fewer than 4 arguments)
-The address of helper_args starts at -40(%rbp), but the member string and target appear to be at -32(%rbp) and -24(%rbp) respectively!
-Comment on the -40(%rbp):  This might be confusing because it appears to be indexing into the address in %rbp, but leaq loads the effective address in a register with a provided constant offset.
+The address of `helper_args` (`&helper_args` in app.c) starts at `-40(%rbp)`, but the member string and target appear to be at `-32(%rbp)` and `-24(%rbp)` respectively! So the first 8 bytes starting at `-40(%rbp` is `char* aux` as expected.
+
+Comment on the `-40(%rbp)`:  This might be confusing because it appears to be indexing into the address in %rbp, but leaq loads the effective address in a register with a provided constant offset. So `%rax` will get the value `%rbp - 40`.
 (Convince yourself that this is correct. 47 is the ASCII representation of '/'.)
 ```
 gcc -c lib.c -o lib.o (again, add arch -x86_64 if you're on an M1 or M2 Mac)
@@ -43,6 +44,10 @@ gcc -c lib.c -o lib.o (again, add arch -x86_64 if you're on an M1 or M2 Mac)
        f: 48 8b 45 f0                   movq    -16(%rbp), %rax
       13: 48 8b 00                      movq    (%rax), %rax
 ```
-Notice that `-16(%rbp)` is the location on the stack that stores a copy of the `helper_args_t* args` pointer that was originally passed through `%rdi`. It gets copied to the `%rax` register afterward. Now it believes `(%rax)` to be the offset of the member string, which was not the case for app! This is happening because it's missing the first member aux.
+Recall that `%rdi` was `&helper_args`. To prepare for the main body of the function which repeatedly uses this pointer, a copy of this pointer is stored in `-16(%rbp)`.
 
-So now this program has an undefined behavior.
+_(An aside: Why this location specifically? This is where it would be if the argument was passed normally through the stack. `(%rbp)` currently stores the previous stack frame pointer, after executing `pushq %rbp`. `-8(%rbp)` would be the saved instructional pointer.)_
+
+It gets copied to the `%rax` register afterward. So `%rax` now stores `&helper_args` from app.c:main. Now it accesses `(%rax)`, an offset of 0 from the pointer, believing this to be the address of the member string. However, this is supposed to store `char* aux` according to what we saw in `app.o`! If it were to be consistent with `app.o`, it should actually load from `-8(%rax)`.
+
+So now this program exhibits undefined behavior. (In fact, it will most likely segfault.)
