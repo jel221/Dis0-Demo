@@ -37,6 +37,8 @@ Comment on the `-40(%rbp)`:  This might be confusing because it appears to be in
 (Convince yourself that this is correct. 47 is the ASCII representation of '/'.)
 ```
 gcc -c lib.c -o lib.o (again, add arch -x86_64 if you're on an M1 or M2 Mac)
+```
+```
        0: 55                            pushq   %rbp
        1: 48 89 e5                      movq    %rsp, %rbp
        4: 48 89 7d f0                   movq    %rdi, -16(%rbp)
